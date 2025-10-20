@@ -1,0 +1,68 @@
+#################################################### Login #############################################################
+User = get_user_model()  # Ensure the custom user model is correctly referenced
+
+@api_view(['POST'])
+def login_view(request):
+    from .models import Users as User  # adjust if needed
+
+    username = request.data.get("username")
+    password = request.data.get("password")
+
+    LABEL_TO_KEY = {
+        "خانه": "home",
+        "گزارش روزانه آزمایشگاه": "daily_lab_report",
+        "ثبت اطلاعات آزمایشگاه": "lab_info",
+        "مشاهده ورود اطلاعات": "lab_report",
+        "ثبت اطلاعات دستگاه": "device_info",
+        'ثبت اطلاعات تامین کننده': "supplier",
+        "ثبت اطلاعات تولید کره حیوانی": "control_material",
+        "مشاهده تولید کره حیوانی": "butter_report",
+        "جداول محصول تولیدی": "production_output",
+        "مشاهده جداول محصول تولیدی": "production_report",
+        "مشاهده راندمان تولید": "report_ranedeman",
+        "مدیریت کاربران": "user_management",
+        "ثبت اطلاعات وزن کره تولیدی": "butter_weight_input",
+        "مشاهده اطلاعات وزن کره تولیدی": "AnimalButterReport",
+        "گزارشات آزمایشگاه":"Laboratory_report",
+        "ثبت استاندارد های کیفی": "Quality",
+        "گزارش آماری آزمایشگاه" : "Chart",
+        "گزارش آماری تولید" : "FilterSection",
+        "گزارش راندمان تولید" : "ProductionEfficiencyPage",
+    }
+
+
+    try:
+        user = User.objects.get(username=username)
+
+        if check_password(password, user.password):
+            refresh = RefreshToken.for_user(user)
+
+            # Split accessible_pages and clean them
+            raw_labels = user.accessible_pages.split('،') if user.accessible_pages else []
+            clean_labels = [label.strip() for label in raw_labels if label.strip()]
+
+            # Build allowedPages list
+            allowed_pages = [
+                {"key": LABEL_TO_KEY[label], "label": label}
+                for label in clean_labels
+                if label in LABEL_TO_KEY
+            ]
+
+            return Response({
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+                "firstname": user.firstname,
+                "lastname": user.lastname,
+                "username": username,
+                "redirect": "/home",
+                "allowed_pages": allowed_pages
+            })
+
+        else:
+            return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
+
+    except User.DoesNotExist:
+        return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
+
+class CustomTokenRefreshView(TokenRefreshView):
+    pass
